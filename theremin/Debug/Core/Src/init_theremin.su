@@ -1,0 +1,2 @@
+init_theremin.c:20:6:set_blocksize	16	static
+init_theremin.c:25:6:get_block	16	static

@@ -19,11 +19,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "nco.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -83,6 +85,11 @@ static void MX_TIM6_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  uint16_t *sin_buffer;
+  uint16_t *extra_buff;
+
+  NCO_T *s_sin;
+  int i;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -110,6 +117,14 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+  s_sin = init_nco(10. / 4550., 0);
+  sin_buffer = calloc(ADC_BUF_SIZE, sizeof(uint16_t));
+  extra_buff = calloc(ADC_BUF_SIZE, sizeof(uint16_t));
+
+  if ((sin_buffer == NULL) || (extra_buff == NULL)) {
+	  printf("Failed to allocate memory for arrays\n");
+	  exit(EXIT_FAILURE);
+  }
 
   //Start ADC with DMA
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_SIZE);
@@ -119,15 +134,29 @@ int main(void)
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 //  HAL_DACEx_TriangleWaveGenerate(&hdac1, DAC_CHANNEL_1, 4095);
 //  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)adc_buf, ADC_BUF_SIZE, DAC_ALIGN_12B_R);
-//  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sine_wave_array, 32, DAC_ALIGN_12B_R);
+
+//  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)adc_buf, ADC_BUF_SIZE, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sin_buffer, ADC_BUF_SIZE, DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  i = 0;
   while (1)
   {
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	nco_get_samples(s_sin, sin_buffer, ADC_BUF_SIZE);
+//	for (i = 0; i < ADC_BUF_SIZE; i++) {
+//		extra_buff[i] = sin_buffer[i];
+//	}
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	i++;
+
+//	memset(sin_buffer, 0, ADC_BUF_SIZE);
+//	for (i = 0; i < ADC_BUF_SIZE; i++) {
+//		sin_buffer[i] = -sin_buffer
+//	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -340,7 +369,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 23;
+  htim6.Init.Period = 20;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -541,13 +570,21 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 //Toggle LED1 whenever ADC
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_SET);
-}
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+//	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_SET);
+//}
+//
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+//	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
+//}
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
-}
+//void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac){
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//}
+//void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
+//	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
+//}
+
 
 /* USER CODE END 4 */
 

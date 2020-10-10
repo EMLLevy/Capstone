@@ -6,6 +6,7 @@
 C_SRCS += \
 ../Core/Src/init_theremin.c \
 ../Core/Src/main.c \
+../Core/Src/nco.c \
 ../Core/Src/stm32h7xx_hal_msp.c \
 ../Core/Src/stm32h7xx_it.c \
 ../Core/Src/syscalls.c \
@@ -15,6 +16,7 @@ C_SRCS += \
 OBJS += \
 ./Core/Src/init_theremin.o \
 ./Core/Src/main.o \
+./Core/Src/nco.o \
 ./Core/Src/stm32h7xx_hal_msp.o \
 ./Core/Src/stm32h7xx_it.o \
 ./Core/Src/syscalls.o \
@@ -24,6 +26,7 @@ OBJS += \
 C_DEPS += \
 ./Core/Src/init_theremin.d \
 ./Core/Src/main.d \
+./Core/Src/nco.d \
 ./Core/Src/stm32h7xx_hal_msp.d \
 ./Core/Src/stm32h7xx_it.d \
 ./Core/Src/syscalls.d \
@@ -36,6 +39,8 @@ Core/Src/init_theremin.o: ../Core/Src/init_theremin.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DARM_MATH_CM7 -DSTM32H7A3xxQ -DDEBUG -c -I../Core/Inc -I../Drivers/CMSIS/DSP/Include -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/init_theremin.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/main.o: ../Core/Src/main.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DARM_MATH_CM7 -DSTM32H7A3xxQ -DDEBUG -c -I../Core/Inc -I../Drivers/CMSIS/DSP/Include -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "$@"
+Core/Src/nco.o: ../Core/Src/nco.c
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DARM_MATH_CM7 -DSTM32H7A3xxQ -DDEBUG -c -I../Core/Inc -I../Drivers/CMSIS/DSP/Include -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/nco.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/stm32h7xx_hal_msp.o: ../Core/Src/stm32h7xx_hal_msp.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DARM_MATH_CM7 -DSTM32H7A3xxQ -DDEBUG -c -I../Core/Inc -I../Drivers/CMSIS/DSP/Include -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/stm32h7xx_hal_msp.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/stm32h7xx_it.o: ../Core/Src/stm32h7xx_it.c

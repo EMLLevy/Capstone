@@ -42,7 +42,7 @@ NCO_T *init_nco(  float f0,            //!< [in] Frequency in cycles per sample
  */
 
 void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
-                     uint16_t *y,         //!< [out] Pointer to an array for storage of output samples.
+                     float *y,         //!< [out] Pointer to an array for storage of output samples.
                      int n_samples);   //!< [in] Number of NCO output samples to generate.
 
 /*!

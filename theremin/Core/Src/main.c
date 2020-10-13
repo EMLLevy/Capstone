@@ -88,12 +88,12 @@ int main(void)
   int i;
   int blocksize;
 
-  static volatile uint16_t *extra_buff;
   static volatile uint16_t *dac_test;
   float *adc_float;
   float *sin_buffer;
   float *sin2_buffer;
   float *mixed_out;
+
   float *fir_out;
   float *fir_state;
   arm_fir_instance_f32 fir_struct;
@@ -136,11 +136,11 @@ int main(void)
 
   sin_buffer = calloc(blocksize, sizeof(float));
   sin2_buffer = calloc(blocksize, sizeof(float));
-  extra_buff = calloc(blocksize, sizeof(uint16_t));
   dac_test = calloc(blocksize, sizeof(uint16_t));
   adc_float = calloc(blocksize, sizeof(float));
   mixed_out = calloc(blocksize, sizeof(float));
   fir_out = calloc(blocksize, sizeof(float));
+
   fir_state = malloc(sizeof(float)*(blocksize+fir_coefs_len-1));
 
   adc_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
@@ -172,19 +172,15 @@ int main(void)
 	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	nco_get_samples(s_ref, sin_buffer, blocksize);
 	nco_get_samples(s_2, sin2_buffer, blocksize);
+	get_adc_buff(adc_float);
 	for (i = 0; i < blocksize; i++) {
-		adc_float[i] = (adc_buf[i] * 3.3) / 4095.;
-//		mixed_out[i] = sin_buffer[i] * adc_float[i];
-		mixed_out[i] = sin_buffer[i] * sin2_buffer[i];
-//		dac_test[i] = (unsigned int)((sin_buffer[i] * 2048.) / 2. + 2047);
-		dac_test[i] = adc_buf[i];//adc_float[i]*4095 / 3.3;
+		mixed_out[i] = sin_buffer[i] * adc_float[i];
+//		dac_test[i] = adc_buf[i];
 	}
 	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
-	for (i = 0; i < blocksize; i++) {
-		extra_buff[i] = (fir_out[i] * 2048.) / 2 + 2047;
-	}
+	set_dac_buff(mixed_out);
 
 	/* USER CODE END WHILE */
 

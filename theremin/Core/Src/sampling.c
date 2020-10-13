@@ -4,12 +4,13 @@
  *  Created on: Oct 13, 2020
  *      Author: Ethan
  */
-
+#include <stdio.h>
+#include "main.h"
 #include "sampling.h"
 
 //Size of ADC Input Buffer
-uint32_t ADC_block_len = 2048;
-uint32_t ADC_buffer_len = ADC_block_len * 2;
+uint32_t ADC_block_len = DEFAULT_BLOCK_LEN;
+uint32_t ADC_buffer_len = DEFAULT_BLOCK_LEN * 2;
 
 volatile uint8_t Half_Done = 0;
 
@@ -58,7 +59,7 @@ void set_dac_buff(float * input_dac) {
 	uint32_t i;
 
 	for (i = 0; i < ADC_block_len; i++) {
-		output_buff[i] = (int)((input_dac + 1.) * 2048.) & 0xFFF;
+		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFF;
 	}
 }
 
@@ -77,8 +78,9 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
 		current_status = PROCESS;
 	}
 	else if (current_status != STARTUP) {
-		printf("Overrun by samples\n");
-		exit(EXIT_FAILURE);
+//		printf("Overrun by samples\n");
+//		exit(EXIT_FAILURE);
+//		while(1);
 	}
 }
 
@@ -89,7 +91,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 			current_status = PROCESS;
 	}
 	else if (current_status != STARTUP) {
-		printf("Overrun by samples\n");
-		exit(EXIT_FAILURE);
+//		printf("Overrun by samples\n");
+//		exit(1);
+//		while(1); //REMOVE THIS
 	}
 }

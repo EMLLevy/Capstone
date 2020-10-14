@@ -5865,24 +5865,24 @@ LOAD c:/st/stm32cubeide_1.4.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.exte
                 0x00000000080007c8      0x1a0 Core/Src/main.o
                 0x00000000080007c8                SystemClock_Config
  .text.MX_ADC1_Init
-                0x0000000008000968       0xf0 Core/Src/main.o
+                0x0000000008000968       0xf4 Core/Src/main.o
  .text.MX_DAC1_Init
-                0x0000000008000a58       0x64 Core/Src/main.o
+                0x0000000008000a5c       0x64 Core/Src/main.o
  .text.MX_TIM6_Init
-                0x0000000008000abc       0x6c Core/Src/main.o
+                0x0000000008000ac0       0x6c Core/Src/main.o
  .text.MX_USART3_UART_Init
-                0x0000000008000b28       0x98 Core/Src/main.o
+                0x0000000008000b2c       0x98 Core/Src/main.o
  .text.MX_USB_OTG_HS_USB_Init
-                0x0000000008000bc0        0xe Core/Src/main.o
- *fill*         0x0000000008000bce        0x2 
+                0x0000000008000bc4        0xe Core/Src/main.o
+ *fill*         0x0000000008000bd2        0x2 
  .text.MX_DMA_Init
-                0x0000000008000bd0       0x70 Core/Src/main.o
+                0x0000000008000bd4       0x70 Core/Src/main.o
  .text.MX_GPIO_Init
-                0x0000000008000c40      0x254 Core/Src/main.o
+                0x0000000008000c44      0x254 Core/Src/main.o
  .text.Error_Handler
-                0x0000000008000e94        0xe Core/Src/main.o
-                0x0000000008000e94                Error_Handler
- *fill*         0x0000000008000ea2        0x6 
+                0x0000000008000e98        0xe Core/Src/main.o
+                0x0000000008000e98                Error_Handler
+ *fill*         0x0000000008000ea6        0x2 
  .text.init_nco
                 0x0000000008000ea8       0x90 Core/Src/nco.o
                 0x0000000008000ea8                init_nco

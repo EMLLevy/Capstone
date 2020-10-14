@@ -19,6 +19,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "nco.h"
+#include "arm_math.h"
+#include "fir_lp.h"
+#include "sampling.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -181,7 +185,7 @@ int main(void)
 	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
 	set_dac_buff(adc_float);
 
-    /* USER CODE END WHILE */
+	/* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }

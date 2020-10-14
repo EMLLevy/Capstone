@@ -19,10 +19,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "nco.h"
-#include "arm_math.h"
-#include "fir_lp.h"
-#include "sampling.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -132,7 +128,7 @@ int main(void)
   blocksize = get_blocksize();
 
   s_ref = init_nco(250. / 4000., 0);
-  s_2 = init_nco(251. / 4000., 0);
+  s_2 = init_nco(247. / 4000., 0);
 
   sin_buffer = calloc(blocksize, sizeof(float));
   sin2_buffer = calloc(blocksize, sizeof(float));
@@ -152,14 +148,13 @@ int main(void)
   }
 
   //Start ADC with DMA
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, blocksize);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
 
   //Start TIM6 and DAC with DMA
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
-//  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)adc_buf, blocksize, DAC_ALIGN_12B_R);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, blocksize, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*blocksize, DAC_ALIGN_12B_R);
 
   arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
 
@@ -169,20 +164,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+
 	nco_get_samples(s_ref, sin_buffer, blocksize);
 	nco_get_samples(s_2, sin2_buffer, blocksize);
+
 	get_adc_buff(adc_float);
+
 	for (i = 0; i < blocksize; i++) {
 		mixed_out[i] = sin_buffer[i] * adc_float[i];
+//		mixed_out[i] = sin_buffer[i] * sin2_buffer[i];
 //		dac_test[i] = adc_buf[i];
 	}
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
-	set_dac_buff(mixed_out);
+	set_dac_buff(adc_float);
 
-	/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -297,8 +296,8 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;

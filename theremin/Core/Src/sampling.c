@@ -14,15 +14,13 @@ uint32_t ADC_buffer_len = DEFAULT_BLOCK_LEN * 2;
 
 volatile uint8_t Half_Done = 0;
 
-volatile uint16_t *adc_buff;
-volatile uint16_t *dac_buff;
+volatile uint16_t *adc_buff=NULL;
+volatile uint16_t *dac_buff=NULL;
 
 static volatile uint16_t *input_buff;
 static volatile uint16_t *output_buff;
 
-//0: wait for buffer
-//1:
-volatile enum status{STARTUP, PROCESS, WAIT_FOR_BUFFER};
+enum status{STARTUP, PROCESS, WAIT_FOR_BUFFER};
 enum status volatile current_status;
 
 int get_blocksize() {
@@ -59,7 +57,7 @@ void set_dac_buff(float * input_dac) {
 	uint32_t i;
 
 	for (i = 0; i < ADC_block_len; i++) {
-		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFF;
+		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFFF;
 	}
 }
 

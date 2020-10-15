@@ -132,7 +132,7 @@ int main(void)
   blocksize = get_blocksize();
 
   s_ref = init_nco(250. / 4000., 0);
-  s_2 = init_nco(247. / 4000., 0);
+  s_2 = init_nco(249. / 4000., 0);
 
   sin_buffer = calloc(blocksize, sizeof(float));
   sin2_buffer = calloc(blocksize, sizeof(float));
@@ -151,10 +151,10 @@ int main(void)
 	  exit(EXIT_FAILURE);
   }
 
-  //Start ADC with DMA
+  /* Start ADC with DMA */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
 
-  //Start TIM6 and DAC with DMA
+  /* Start TIM6 and DAC with DMA */
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
@@ -168,21 +168,21 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-
 	nco_get_samples(s_ref, sin_buffer, blocksize);
 	nco_get_samples(s_2, sin2_buffer, blocksize);
 
 	get_adc_buff(adc_float);
 
+	/* Mix the ADC input with the generated sine wave at 250kHz */
 	for (i = 0; i < blocksize; i++) {
 		mixed_out[i] = sin_buffer[i] * adc_float[i];
 //		mixed_out[i] = sin_buffer[i] * sin2_buffer[i];
-//		dac_test[i] = adc_buf[i];
 	}
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
+	/* Filter the mixed output with the filter coefficients*/
 	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
+
+	/* Output result to DAC */
 	set_dac_buff(adc_float);
 
 	/* USER CODE END WHILE */
@@ -297,13 +297,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
-  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -365,7 +365,7 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {

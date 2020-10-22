@@ -131,7 +131,7 @@ int main(void)
 //  s_ref = init_nco(250. / 4550., 0);
   blocksize = get_blocksize();
 
-  s_ref = init_nco(250. / 4000., 0);
+  s_ref = init_nco(250. / 1000., 0);
   s_2 = init_nco(249. / 4000., 0);
 
   sin_buffer = calloc(blocksize, sizeof(float));
@@ -166,13 +166,20 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  i = 0;
+//  nco_get_samples(s_ref, sin_buffer, blocksize);
+//  set_dac_buff(sin_buffer);
+//  nco_get_samples(s_ref, sin_buffer, blocksize);
+//  set_dac_buff(sin_buffer);
   while (1)
   {
+
+
 	nco_get_samples(s_ref, sin_buffer, blocksize);
-	nco_get_samples(s_2, sin2_buffer, blocksize);
+//	nco_get_samples(s_2, sin2_buffer, blocksize);
 
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	get_adc_buff(adc_float);
-
 	/* Mix the ADC input with the generated sine wave at 250kHz */
 	for (i = 0; i < blocksize; i++) {
 		mixed_out[i] = sin_buffer[i] * adc_float[i];
@@ -182,8 +189,9 @@ int main(void)
 	/* Filter the mixed output with the filter coefficients*/
 	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
 
+
 	/* Output result to DAC */
-	set_dac_buff(adc_float);
+	set_dac_buff(sin_buffer);
 
 	/* USER CODE END WHILE */
 
@@ -397,7 +405,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 23;
+  htim6.Init.Period = 96;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {

@@ -66,12 +66,13 @@ void set_dac_buff(float * input_dac) {
 	for (i = 0; i < ADC_block_len; i++) {
 		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFFF;
 	}
+//	output_buff = &(dac_buff[ADC_block_len]);
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
 	Half_Done = 1;
 
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	if (current_status == STARTUP){}
 	else if (current_status == WAIT_FOR_BUFFER) {
 		current_status = PROCESS;

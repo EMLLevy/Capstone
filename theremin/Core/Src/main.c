@@ -19,10 +19,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "nco.h"
-#include "arm_math.h"
-#include "fir_lp.h"
-#include "sampling.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -52,9 +48,12 @@ DMA_HandleTypeDef hdma_adc1;
 DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
 
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart3;
+
+volatile uint32_t timer_val;
 
 /* USER CODE BEGIN PV */
 
@@ -69,6 +68,7 @@ static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -86,20 +86,24 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   int i;
+//  uint32_t timer_val;
   int blocksize;
 
-  static volatile uint16_t *dac_test;
-  float *adc_float;
-  float *sin_buffer;
-  float *sin2_buffer;
-  float *mixed_out;
+  char uart_buf[50];
+  int uart_buf_len;
 
-  float *fir_out;
-  float *fir_state;
-  arm_fir_instance_f32 fir_struct;
-
-  NCO_T *s_ref;
-  NCO_T *s_2;
+//  static volatile uint16_t *dac_test;
+//  float *adc_float;
+//  float *sin_buffer;
+//  float *sin2_buffer;
+//  float *mixed_out;
+//
+//  float *fir_out;
+//  float *fir_state;
+//  arm_fir_instance_f32 fir_struct;
+//
+//  NCO_T *s_ref;
+//  NCO_T *s_2;
 
   /* USER CODE END 1 */
 
@@ -127,73 +131,78 @@ int main(void)
   MX_ADC1_Init();
   MX_DAC1_Init();
   MX_TIM6_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 //  s_ref = init_nco(250. / 4550., 0);
-  blocksize = get_blocksize();
+//  blocksize = get_blocksize();
+//
+//  s_ref = init_nco(250. / 1000., 0);
+//  s_2 = init_nco(249. / 4000., 0);
+//
+//  sin_buffer = calloc(blocksize, sizeof(float));
+//  sin2_buffer = calloc(blocksize, sizeof(float));
+//  dac_test = calloc(blocksize, sizeof(uint16_t));
+//  adc_float = calloc(blocksize, sizeof(float));
+//  mixed_out = calloc(blocksize, sizeof(float));
+//  fir_out = calloc(blocksize, sizeof(float));
 
-  s_ref = init_nco(250. / 1000., 0);
-  s_2 = init_nco(249. / 4000., 0);
+//  fir_state = malloc(sizeof(float)*(blocksize+fir_coefs_len-1));
+//
+//  adc_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
+//  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
 
-  sin_buffer = calloc(blocksize, sizeof(float));
-  sin2_buffer = calloc(blocksize, sizeof(float));
-  dac_test = calloc(blocksize, sizeof(uint16_t));
-  adc_float = calloc(blocksize, sizeof(float));
-  mixed_out = calloc(blocksize, sizeof(float));
-  fir_out = calloc(blocksize, sizeof(float));
-
-  fir_state = malloc(sizeof(float)*(blocksize+fir_coefs_len-1));
-
-  adc_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-
-  if ((adc_buff == NULL) || (dac_buff == NULL)) {
-	  printf("Failed to allocate memory for arrays\n");
-	  exit(EXIT_FAILURE);
-  }
+//  if ((adc_buff == NULL) || (dac_buff == NULL)) {
+//	  printf("Failed to allocate memory for arrays\n");
+//	  exit(EXIT_FAILURE);
+//  }
 
   /* Start ADC with DMA */
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
+//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
 
   /* Start TIM6 and DAC with DMA */
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*blocksize, DAC_ALIGN_12B_R);
+//  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*blocksize, DAC_ALIGN_12B_R);
 
-  arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
+//  arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  uart_buf_len = sprintf(uart_buf, "Testing\r\n");
+  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
   i = 0;
-//  nco_get_samples(s_ref, sin_buffer, blocksize);
-//  set_dac_buff(sin_buffer);
-//  nco_get_samples(s_ref, sin_buffer, blocksize);
-//  set_dac_buff(sin_buffer);
+
+  timer_val = 0;
   while (1)
   {
 
+//	  if (__HAL_TIM_GET_COUNTER(&htim2) < 100)
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	  timer_val = __HAL_TIM_GET_COUNTER(&htim2);
 
-	nco_get_samples(s_ref, sin_buffer, blocksize);
-//	nco_get_samples(s_2, sin2_buffer, blocksize);
+//	  HAL_Delay(50);
+
+//	  timer_val = __HAL_TIM_GET_COUNTER(&htim2) - timer_val;
+
+//	  uart_buf_len = sprintf(uart_buf, "%d us\r\n", timer_val);
+//	  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+
+//	  HAL_Delay(1000);
+//	nco_get_samples(s_ref, sin_buffer, blocksize);
 
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	get_adc_buff(adc_float);
+//	get_adc_buff(adc_float);
 	/* Mix the ADC input with the generated sine wave at 250kHz */
-	for (i = 0; i < blocksize; i++) {
-		mixed_out[i] = sin_buffer[i] * adc_float[i];
-//		mixed_out[i] = sin_buffer[i] * sin2_buffer[i];
-	}
-
-	/* Filter the mixed output with the filter coefficients*/
-	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
-
 
 	/* Output result to DAC */
-	set_dac_buff(sin_buffer);
+//	set_dac_buff(sin_buffer);
 
-	/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -305,13 +314,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
-  hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -373,7 +382,7 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -382,6 +391,64 @@ static void MX_DAC1_Init(void)
   /* USER CODE BEGIN DAC1_Init 2 */
 
   /* USER CODE END DAC1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 96;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 1;
+  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -405,7 +472,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 96;
+  htim6.Init.Period = 20;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -613,7 +680,18 @@ static void MX_GPIO_Init(void)
 //	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
 //}
 
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef * htim) {
+	char uart_buf[50];
+	int uart_buf_len;
+	timer_val = __HAL_TIM_GET_COUNTER(&htim2) - timer_val;
+//  uart_buf_len = sprintf(uart_buf, "%d us\r\n", timer_val);
+//  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+}
 
+//void HAL_TIM_IC_CaptureHalfCpltCallback(TIM_HandleTypeDef * htim){
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//}
 /* USER CODE END 4 */
 
 /**

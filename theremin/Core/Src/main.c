@@ -25,15 +25,21 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "nco.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+volatile uint32_t rising_edges;
+volatile uint8_t pulse_flag;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define REF_OSC_FREQ 250000
+#define BLOCKSIZE 1000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,8 +58,6 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart3;
-
-volatile uint32_t timer_val;
 
 /* USER CODE BEGIN PV */
 
@@ -86,15 +90,14 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   int i;
-//  uint32_t timer_val;
-  int blocksize;
 
   char uart_buf[50];
   int uart_buf_len;
+  volatile uint32_t timer_count = 0;
 
 //  static volatile uint16_t *dac_test;
 //  float *adc_float;
-//  float *sin_buffer;
+  uint16_t *sin_buffer;
 //  float *sin2_buffer;
 //  float *mixed_out;
 //
@@ -102,7 +105,7 @@ int main(void)
 //  float *fir_state;
 //  arm_fir_instance_f32 fir_struct;
 //
-//  NCO_T *s_ref;
+  NCO_T *s_ref;
 //  NCO_T *s_2;
 
   /* USER CODE END 1 */
@@ -133,37 +136,27 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-//  s_ref = init_nco(250. / 4550., 0);
-//  blocksize = get_blocksize();
-//
+  s_ref = init_nco(100. / 4550., 0);
 //  s_ref = init_nco(250. / 1000., 0);
 //  s_2 = init_nco(249. / 4000., 0);
 //
-//  sin_buffer = calloc(blocksize, sizeof(float));
+  sin_buffer = calloc(BLOCKSIZE, sizeof(uint16_t));
 //  sin2_buffer = calloc(blocksize, sizeof(float));
 //  dac_test = calloc(blocksize, sizeof(uint16_t));
 //  adc_float = calloc(blocksize, sizeof(float));
 //  mixed_out = calloc(blocksize, sizeof(float));
 //  fir_out = calloc(blocksize, sizeof(float));
 
-//  fir_state = malloc(sizeof(float)*(blocksize+fir_coefs_len-1));
-//
-//  adc_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-//  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-
 //  if ((adc_buff == NULL) || (dac_buff == NULL)) {
 //	  printf("Failed to allocate memory for arrays\n");
 //	  exit(EXIT_FAILURE);
 //  }
 
-  /* Start ADC with DMA */
-//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
-
   /* Start TIM6 and DAC with DMA */
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
-//  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*blocksize, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sin_buffer, BLOCKSIZE, DAC_ALIGN_12B_R);
 
 //  arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
 
@@ -172,28 +165,34 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  uart_buf_len = sprintf(uart_buf, "Testing\r\n");
-  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
-  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
+//  uart_buf_len = sprintf(uart_buf, "\nTesting\r\n");
+//  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+  HAL_TIM_Base_Start(&htim2);
   i = 0;
 
-  timer_val = 0;
+  timer_count = __HAL_TIM_GET_COUNTER(&htim2);
   while (1)
   {
 
-//	  if (__HAL_TIM_GET_COUNTER(&htim2) < 100)
-//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	  timer_val = __HAL_TIM_GET_COUNTER(&htim2);
-
-//	  HAL_Delay(50);
-
-//	  timer_val = __HAL_TIM_GET_COUNTER(&htim2) - timer_val;
-
-//	  uart_buf_len = sprintf(uart_buf, "%d us\r\n", timer_val);
+	  timer_count = __HAL_TIM_GET_COUNTER(&htim2);
+//	  uart_buf_len = sprintf(uart_buf, "%d\r\n", timer_count);
 //	  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 //	  HAL_Delay(1000);
-//	nco_get_samples(s_ref, sin_buffer, blocksize);
+//	  if (__HAL_TIM_GET_COUNTER(&htim2) < 100)
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	  timer_count = __HAL_TIM_GET_COUNTER(&htim2);
+
+//	  HAL_Delay(50);
+
+//	  timer_count = __HAL_TIM_GET_COUNTER(&htim2) - timer_count;
+
+//	  uart_buf_len = sprintf(uart_buf, "%d us\r\n", timer_count);
+//	  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+
+//	  HAL_Delay(1000);
+	HAL_DAC_SetValue(&hdac1, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
+//	nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
 
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	get_adc_buff(adc_float);
@@ -406,15 +405,14 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 96;
+  htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -423,26 +421,17 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_TI1FP1;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+  sSlaveConfig.TriggerFilter = 1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim2, &sSlaveConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 1;
-  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -672,27 +661,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-//void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac){
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//}
-//void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
-//	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
-//}
-
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef * htim) {
-	char uart_buf[50];
-	int uart_buf_len;
-	timer_val = __HAL_TIM_GET_COUNTER(&htim2) - timer_val;
-//  uart_buf_len = sprintf(uart_buf, "%d us\r\n", timer_val);
-//  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-}
-
-//void HAL_TIM_IC_CaptureHalfCpltCallback(TIM_HandleTypeDef * htim){
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//}
-/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.

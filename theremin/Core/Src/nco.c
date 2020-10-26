@@ -48,7 +48,7 @@ NCO_T *init_nco(  float f0,            //!< [in] Frequency in cycles per sample
  */
 
 void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
-                     float *y,         //!< [out] Pointer to an array for storage of output samples.
+                     uint16_t *y,         //!< [out] Pointer to an array for storage of output samples.
                      int n_samples){   //!< [in] Number of NCO output samples to generate.
 	unsigned int i;
 	unsigned int kprime;
@@ -72,8 +72,8 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
 //        }
 //		y[i] = index;
 //        y[i] = (int)((cosine[i / 2] * 2048)/2 + 2047);
-//        y[i] = (unsigned int)((cosine[index] * 2048)/2 + 2047);
-        y[i] = cosine[index];
+        y[i] = (unsigned int)((cosine[index] * 2048)/2 + 2047);
+//        y[i] = cosine[index];
 	}
 }
 

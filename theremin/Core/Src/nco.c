@@ -66,14 +66,11 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
         kprime = s->acc + s->theta;
 
         index = kprime >> 23;
-//        if (index)
-//        if ((i > 0) && (index < 10) && (y[i - 1] < 500) && (y[i - 1] > 100)) {
-//        	y[i] = index;
-//        }
 //		y[i] = index;
 //        y[i] = (int)((cosine[i / 2] * 2048)/2 + 2047);
-        y[i] = (unsigned int)((cosine[index] * 2048)/2 + 2047);
-//        y[i] = cosine[index];
+        y[i] = (unsigned int)((cosine[index] + 1) * 2047);
+//        y[i] = (unsigned int)((cosine[index] * 4095) / 2 + 2047);
+//        y[i] = cosine[i];
 	}
 }
 

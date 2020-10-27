@@ -1,5 +1,5 @@
 nco.c:22:8:init_nco	24	static
 nco.c:50:6:nco_get_samples	40	static
-nco.c:87:6:nco_set_frequency	16	static
-nco.c:99:6:nco_set_phase	16	static
-nco.c:110:6:destroy_nco	16	static
+nco.c:84:6:nco_set_frequency	16	static
+nco.c:96:6:nco_set_phase	16	static
+nco.c:107:6:destroy_nco	16	static

@@ -32,13 +32,16 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 volatile uint8_t update_freq_flag;
+volatile float timer_count = 0;
+volatile uint8_t ms = 0;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define REF_OSC_FREQ 250000
-#define BLOCKSIZE 1000
+#define BLOCKSIZE 	1000
+#define MILLISECONDS 10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -94,7 +97,6 @@ int main(void)
 
   char uart_buf[50];
   int uart_buf_len;
-  volatile uint32_t timer_count = 0;
   int freq;
 
 //  static volatile uint16_t *dac_test;
@@ -141,15 +143,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 //  s_ref = init_nco(1. / 4000., 0);
   s_ref = init_nco(1. / 100., 0);
-//  s_ref = init_nco(250. / 1000., 0);
-//  s_2 = init_nco(249. / 4000., 0);
-//
   sin_buffer = calloc(BLOCKSIZE, sizeof(uint16_t));
-//  sin2_buffer = calloc(blocksize, sizeof(float));
-//  dac_test = calloc(blocksize, sizeof(uint16_t));
-//  adc_float = calloc(blocksize, sizeof(float));
-//  mixed_out = calloc(blocksize, sizeof(float));
-//  fir_out = calloc(blocksize, sizeof(float));
 
 //  if ((adc_buff == NULL) || (dac_buff == NULL)) {
 //	  printf("Failed to allocate memory for arrays\n");
@@ -183,29 +177,26 @@ int main(void)
   {
 
 	  if (update_freq_flag) {
-		  timer_count = __HAL_TIM_GET_COUNTER(&htim2);
 	//	  uart_buf_len = sprintf(uart_buf, "%d\r\n", timer_count);
 	//	  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 	//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-		  timer_count = __HAL_TIM_GET_COUNTER(&htim2);
 
 		  /* Calculate the frequency to oscillate at */
-		  freq = (int)((timer_count * 200 - REF_OSC_FREQ)) ;		//Round to the nearest hundred Hz
+		  freq = (int)((timer_count * 1000 - REF_OSC_FREQ)) ;		//Round to the nearest hundred Hz
 		  if (freq < 0)
 			  freq = -freq;
 
-		  __HAL_TIM_SET_COUNTER(&htim2, 0);
-		  uart_buf_len = sprintf(uart_buf, "%d counts\r\n", freq);
-		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+//		  uart_buf_len = sprintf(uart_buf, "%d counts\r\n", (int)freq);
+//		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 		//	HAL_DAC_SetValue(&hdac1, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
 		  nco_set_frequency(s_ref, (float)freq / 100000.);
-		  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
-	//	  nco_set_frequency(s_ref, (float)(i%5 + 1)/100.);
 		  update_freq_flag = 0;
+//		  timer_count = 0;
 		  i++;
 	  }
+	  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
 
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	get_adc_buff(adc_float);
@@ -512,7 +503,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 96-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 5000-1;
+  htim7.Init.Period = 1000-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {
@@ -714,7 +705,17 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	update_freq_flag = 1;
+
+	if (ms == 0)
+		timer_count = 0;
+	timer_count += __HAL_TIM_GET_COUNTER(&htim2);
+	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	ms++;
+	if (ms == MILLISECONDS) {
+		update_freq_flag = 1;
+		timer_count /= MILLISECONDS;
+		ms = 0;
+	}
 }
 /* USER CODE END 4 */
 

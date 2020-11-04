@@ -17,6 +17,7 @@ static const float cosine[512] = {0.999925, 0.999699, 0.999322, 0.998795, 0.9981
 typedef struct your_nco_struct {
    unsigned int f0;
    unsigned int theta;
+   float amp;
    int acc;
    } NCO_T;
 
@@ -64,6 +65,9 @@ void nco_set_frequency( NCO_T *s,      //!< [in,out] Pointer to NCO_T struct.
 
 void nco_set_phase(  NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
                      float theta);     //!< [in] New NCO phase.
+
+void nco_set_amplitude(	NCO_T *s,
+						int amp);
 
 /*!
  * @brief Free allocated memory in struct @a s.

@@ -32,7 +32,8 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 volatile uint8_t update_freq_flag;
-volatile float timer_count = 0;
+volatile float freq_timer_count = 0;
+volatile float vol_timer_count = 0;
 volatile uint8_t ms = 0;
 
 /* USER CODE END PTD */
@@ -57,6 +58,7 @@ DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
 
@@ -77,6 +79,7 @@ static void MX_DAC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -97,7 +100,12 @@ int main(void)
 
   char uart_buf[50];
   int uart_buf_len;
+
+  /* Frequency to output as a sine wave on the DAC */
   int freq;
+
+  /* Volume to output as a sine wave on the DAC */
+  int vol;
 
 //  static volatile uint16_t *dac_test;
 //  float *adc_float;
@@ -140,6 +148,7 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM2_Init();
   MX_TIM7_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 //  s_ref = init_nco(1. / 4000., 0);
   s_ref = init_nco(1. / 100., 0);
@@ -169,33 +178,40 @@ int main(void)
   /* Timer to update and change frequencies with */
   HAL_TIM_Base_Start_IT(&htim7);
 
-  /* Timer to count up input pulses */
+  /* Timers to count up input pulses */
   HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_Base_Start(&htim5);
   i = 0;
 
   while (1)
   {
 
 	  if (update_freq_flag) {
-	//	  uart_buf_len = sprintf(uart_buf, "%d\r\n", timer_count);
-	//	  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 	//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 		  /* Calculate the frequency to oscillate at */
-		  freq = (int)((timer_count * 1000 - REF_OSC_FREQ)) ;		//Round to the nearest hundred Hz
+		  freq = (int)((freq_timer_count * 1000 - REF_OSC_FREQ));
+
+		  /* Calculate the volume level */
+		  vol = (int)((vol_timer_count * 1000 - REF_OSC_FREQ)) ;
+
+		  /* Take the absolute value of the difference */
 		  if (freq < 0)
 			  freq = -freq;
+		  if (vol < 0)
+			  vol = -vol;
 
-//		  uart_buf_len = sprintf(uart_buf, "%d counts\r\n", (int)freq);
+//		  uart_buf_len = sprintf(uart_buf, "%d counts\r\n", (int)(vol));
 //		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
-		//	HAL_DAC_SetValue(&hdac1, DAC1_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
+		  /* Generate sine wave at desired frequency and amplitude */
 		  nco_set_frequency(s_ref, (float)freq / 100000.);
+		  nco_set_amplitude(s_ref, vol);
 		  update_freq_flag = 0;
-//		  timer_count = 0;
 		  i++;
 	  }
+	  /* Get DAC output samples */
 	  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
 
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
@@ -442,6 +458,54 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_TI2FP2;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+  sSlaveConfig.TriggerFilter = 1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim5, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -706,14 +770,19 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
-	if (ms == 0)
-		timer_count = 0;
-	timer_count += __HAL_TIM_GET_COUNTER(&htim2);
+	if (ms == 0){
+		freq_timer_count = 0;
+		vol_timer_count = 0;
+	}
+	freq_timer_count += __HAL_TIM_GET_COUNTER(&htim2);
 	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	vol_timer_count += __HAL_TIM_GET_COUNTER(&htim5);
+	__HAL_TIM_SET_COUNTER(&htim5, 0);
 	ms++;
 	if (ms == MILLISECONDS) {
 		update_freq_flag = 1;
-		timer_count /= MILLISECONDS;
+		freq_timer_count /= MILLISECONDS;
+		vol_timer_count /= MILLISECONDS;
 		ms = 0;
 	}
 }

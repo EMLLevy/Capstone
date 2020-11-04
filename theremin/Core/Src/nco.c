@@ -33,6 +33,7 @@ NCO_T *init_nco(  float f0,            //!< [in] Frequency in cycles per sample
     s->f0 = (int)(f0 * 2 * (1u << 31));
     s->theta = (int)((theta * 2 * (1u << 31))/(2.*PI));
     s->acc = 0;
+    s->amp = 0;
 
     //Return pointer to struct NCO_T
     return s;
@@ -62,13 +63,14 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
             // k1prime[n]
             s->acc += s->f0;
         }
+
         //kprime[n]
         kprime = s->acc + s->theta;
 
         index = kprime >> 23;
 //		y[i] = index;
 //        y[i] = (int)((cosine[i / 2] * 2048)/2 + 2047);
-        y[i] = (unsigned int)((cosine[index] + 1) * 2047)>>1;
+        y[i] = (unsigned int)((cosine[index] + 1) * 2047) * s->amp;
 //        y[i] = (unsigned int)((cosine[index] * 4095) / 2 + 2047);
 //        y[i] = cosine[i];
 	}
@@ -96,6 +98,22 @@ void nco_set_frequency( NCO_T *s,      //!< [in,out] Pointer to NCO_T struct.
 void nco_set_phase(  NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
                      float theta){     //!< [in] New NCO phase.
     s->theta = (int)((theta * 2 * (1u << 31))/(2*PI));
+}
+
+/*!
+ * @brief Update the amplitude stored in the struct @a s.
+ *
+ * @returns On return, The NCO_T structure s is modified so that subsequent calls to nco_get_samples()
+ * will operate with the amplitude given by amp
+ */
+
+void nco_set_amplitude(	NCO_T *s,
+						int amp){
+	s->amp = (float)amp / 10000.;
+	/* Don't want to saturate the output */
+	if (s->amp > 1) {
+		s->amp = 0;
+	}
 }
 
 /*!

@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "nco.h"
+#include "sampling.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,8 +41,8 @@ volatile uint8_t ms = 0;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define REF_OSC_FREQ 250000
-#define BLOCKSIZE 	1000
+#define REF_OSC_FREQ 251000
+#define BLOCKSIZE 	500
 #define MILLISECONDS 10
 /* USER CODE END PD */
 
@@ -107,18 +108,10 @@ int main(void)
   /* Volume to output as a sine wave on the DAC */
   int vol;
 
-//  static volatile uint16_t *dac_test;
-//  float *adc_float;
+  /* Sine buffer for NCO output */
   uint16_t *sin_buffer;
-//  float *sin2_buffer;
-//  float *mixed_out;
-//
-//  float *fir_out;
-//  float *fir_state;
-//  arm_fir_instance_f32 fir_struct;
-//
+
   NCO_T *s_ref;
-//  NCO_T *s_2;
 
   /* USER CODE END 1 */
 
@@ -150,31 +143,30 @@ int main(void)
   MX_TIM7_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-//  s_ref = init_nco(1. / 4000., 0);
+
+  /* Initialize NCO structure to create sine waves */
   s_ref = init_nco(1. / 100., 0);
   sin_buffer = calloc(BLOCKSIZE, sizeof(uint16_t));
 
-//  if ((adc_buff == NULL) || (dac_buff == NULL)) {
-//	  printf("Failed to allocate memory for arrays\n");
-//	  exit(EXIT_FAILURE);
-//  }
+  if ((sin_buffer == NULL)) {
+	  printf("Failed to allocate memory for arrays\n");
+	  exit(EXIT_FAILURE);
+  }
 
   /* Start TIM6 and DAC with DMA */
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
+  set_blocksize(BLOCKSIZE);
+  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*BLOCKSIZE*2);
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sin_buffer, BLOCKSIZE, DAC_ALIGN_12B_R);
-
-//  arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*BLOCKSIZE, DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-//  uart_buf_len = sprintf(uart_buf, "\nTesting\r\n");
-//  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
   /* Timer to update and change frequencies with */
   HAL_TIM_Base_Start_IT(&htim7);
 
@@ -183,18 +175,20 @@ int main(void)
   HAL_TIM_Base_Start(&htim5);
   i = 0;
 
+
   while (1)
   {
 
+	  /* Trigger every MILLISECONDS ms */
 	  if (update_freq_flag) {
 
-	//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 		  /* Calculate the frequency to oscillate at */
 		  freq = (int)((freq_timer_count * 1000 - REF_OSC_FREQ));
 
 		  /* Calculate the volume level */
-		  vol = (int)((vol_timer_count * 1000 - REF_OSC_FREQ)) ;
+		  vol = (int)((vol_timer_count * 1000 - /*REF_VOL_FREQ*/ 260000UL)) ;
 
 		  /* Take the absolute value of the difference */
 		  if (freq < 0)
@@ -202,24 +196,27 @@ int main(void)
 		  if (vol < 0)
 			  vol = -vol;
 
-//		  uart_buf_len = sprintf(uart_buf, "%d counts\r\n", (int)(vol));
-//		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+		  /* Inform serial bus of the current output frequency */
+		  uart_buf_len = sprintf(uart_buf, "%dHz\r\n", (int)(freq));
+		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 		  /* Generate sine wave at desired frequency and amplitude */
 		  nco_set_frequency(s_ref, (float)freq / 100000.);
 		  nco_set_amplitude(s_ref, vol);
+
 		  update_freq_flag = 0;
 		  i++;
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	  }
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+
 	  /* Get DAC output samples */
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	get_adc_buff(adc_float);
-	/* Mix the ADC input with the generated sine wave at 250kHz */
-
-	/* Output result to DAC */
-//	set_dac_buff(sin_buffer);
+	  /* Output result to DAC */
+	  set_dac_buff(sin_buffer);
 
     /* USER CODE END WHILE */
 
@@ -768,7 +765,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 	if (ms == 0){
 		freq_timer_count = 0;
@@ -785,6 +782,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		vol_timer_count /= MILLISECONDS;
 		ms = 0;
 	}
+}
+
+void HAL_DAC_ConvCpltCallbackCh1 (DAC_HandleTypeDef * hdac) {
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 }
 /* USER CODE END 4 */
 

@@ -2,5 +2,3 @@ sampling.c:25:5:get_blocksize	4	static
 sampling.c:29:6:set_blocksize	16	static
 sampling.c:35:6:get_adc_buff	24	static,ignoring_inline_asm
 sampling.c:62:6:set_dac_buff	24	static
-sampling.c:72:6:HAL_ADC_ConvHalfCpltCallback	16	static
-sampling.c:87:6:HAL_ADC_ConvCpltCallback	16	static

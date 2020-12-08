@@ -1,6 +1,6 @@
-nco.c:22:8:init_nco	24	static
-nco.c:51:6:nco_get_samples	40	static
-nco.c:86:6:nco_set_frequency	16	static
-nco.c:98:6:nco_set_phase	16	static
-nco.c:110:6:nco_set_amplitude	16	static
-nco.c:125:6:destroy_nco	16	static
+nco.c:15:8:init_nco	24	static
+nco.c:44:6:nco_get_samples	40	static
+nco.c:76:6:nco_set_frequency	16	static
+nco.c:88:6:nco_set_phase	16	static
+nco.c:100:6:nco_set_amplitude	16	static
+nco.c:120:6:destroy_nco	16	static

@@ -32,7 +32,7 @@ void set_blocksize( uint32_t new_blocksize) {
 }
 
 /* Get buffer from the ADC */
-void get_adc_buff(float * ret_adc) {
+void get_adc_buff(uint16_t * ret_adc) {
 	uint32_t i;
 
 	/* Wait for the next buffer of values */
@@ -59,42 +59,50 @@ void get_adc_buff(float * ret_adc) {
 }
 
 /* Set DAC buffer to output */
-void set_dac_buff(float * input_dac) {
+void set_dac_buff(uint16_t * input_dac) {
 	uint32_t i;
 
+	if (Half_Done) {
+		output_buff = dac_buff;
+		Half_Done = 0;
+	}
+	else {
+		output_buff = &(dac_buff[ADC_block_len]);
+		Half_Done = 1;
+	}
 	/* Convert from float to 0-4095 for 12bit dac */
 	for (i = 0; i < ADC_block_len; i++) {
-		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFFF;
+		output_buff[i] = input_dac[i];
 	}
 //	output_buff = &(dac_buff[ADC_block_len]);
 }
 
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	Half_Done = 1;
-
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+//	Half_Done = 1;
+//
+////	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	if (current_status == STARTUP){}
+//	else if (current_status == WAIT_FOR_BUFFER) {
+//		current_status = PROCESS;
+//	}
+//	else {
+////		printf("Overrun by samples\n");
+////		exit(EXIT_FAILURE);
+////		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	}
+//}
+//
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+//	Half_Done = 0;
+//
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	if (current_status == STARTUP){}
-	else if (current_status == WAIT_FOR_BUFFER) {
-		current_status = PROCESS;
-	}
-	else {
-//		printf("Overrun by samples\n");
-//		exit(EXIT_FAILURE);
-//		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	}
-}
-
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	Half_Done = 0;
-
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	if (current_status == STARTUP){}
-	if (current_status == WAIT_FOR_BUFFER) {
-			current_status = PROCESS;
-	}
-	else{
-//		printf("Overrun by samples\n");
-//		exit(1);
-//		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	}
-}
+//	if (current_status == STARTUP){}
+//	if (current_status == WAIT_FOR_BUFFER) {
+//			current_status = PROCESS;
+//	}
+//	else{
+////		printf("Overrun by samples\n");
+////		exit(1);
+////		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	}
+//}

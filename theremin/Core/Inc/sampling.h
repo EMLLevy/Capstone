@@ -16,8 +16,8 @@ extern volatile uint16_t *dac_buff;
 
 int get_blocksize();
 void set_blocksize( uint32_t new_blocksize);
-void get_adc_buff(float * ret_buff);
-void set_dac_buff(float * input_dac);
+void get_adc_buff(uint16_t * ret_buff);
+void set_dac_buff(uint16_t * input_dac);
 
 enum status{STARTUP, PROCESS, WAIT_FOR_BUFFER};
 extern enum status volatile current_status;

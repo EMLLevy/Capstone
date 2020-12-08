@@ -1,10 +1,3 @@
-/*
- * nco.c
- *
- *  Created on: Sep 30, 2020
- *      Author: Ethan
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "nco.h"
@@ -68,11 +61,8 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
         kprime = s->acc + s->theta;
 
         index = kprime >> 23;
-//		y[i] = index;
-//        y[i] = (int)((cosine[i / 2] * 2048)/2 + 2047);
         y[i] = (unsigned int)((cosine[index] + 1) * 2047) * s->amp;
-//        y[i] = (unsigned int)((cosine[index] * 4095) / 2 + 2047);
-//        y[i] = cosine[i];
+//        y[i] = (unsigned int)((cosine[index] + 1) * 2047) * .5;
 	}
 }
 
@@ -109,10 +99,15 @@ void nco_set_phase(  NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
 
 void nco_set_amplitude(	NCO_T *s,
 						int amp){
-	s->amp = (float)amp / 10000.;
-	/* Don't want to saturate the output */
-	if (s->amp > 1) {
-		s->amp = 0;
+	if (amp <= 5000) {
+		amp = 5000 - amp;
+		s->amp = (float)amp / 10000.;
+		/* Don't want to saturate the output */
+		if (s->amp > 1) {
+			s->amp = 0;
+		}
+	}else {
+		s->amp = 0.0;
 	}
 }
 

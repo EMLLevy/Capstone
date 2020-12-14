@@ -197,11 +197,11 @@ int main(void)
 			  vol = -vol;
 
 		  /* Inform serial bus of the current output frequency */
-		  uart_buf_len = sprintf(uart_buf, "%dHz\r\n", (int)(freq));
-		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+//		  uart_buf_len = sprintf(uart_buf, "%dHz\r\n", (int)(freq));
+//		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 		  /* Generate sine wave at desired frequency and amplitude */
-		  nco_set_frequency(s_ref, (float)freq / 100000.);
+		  nco_set_frequency(s_ref, (float)freq / 50000.);
 		  nco_set_amplitude(s_ref, vol);
 
 		  update_freq_flag = 0;
@@ -526,7 +526,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 960 - 1;
+  htim6.Init.Period = 1919;//960 - 1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -764,6 +764,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief  This function is executed every millisecond.
+  * This adds up all measured input pulses on timers 2 and 5, and then averages to find the average frequency.
+  * @retval None
+  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 

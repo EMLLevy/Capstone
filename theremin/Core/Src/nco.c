@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "nco.h"
 #include "math.h"
+#include "main.h"
 
 /*!
  * @brief Numerically controlled oscillator (NCO) initialization
@@ -48,22 +49,23 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
 	unsigned int kprime;
 	unsigned int index;
 
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	for (i = 0; i < n_samples; i++) {
 
         if ((i == 0) && (s->acc == 0)) {
-            s->acc = 0;
         } else {
-            // k1prime[n]
+            /* Keep track of where we are in the sine wave */
             s->acc += s->f0;
         }
 
-        //kprime[n]
         kprime = s->acc + s->theta;
 
         index = kprime >> 23;
+
+        /* Convert from float to 16-bit */
         y[i] = (unsigned int)((cosine[index] + 1) * 2047) * s->amp;
-//        y[i] = (unsigned int)((cosine[index] + 1) * 2047) * .5;
 	}
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 }
 
 /*!

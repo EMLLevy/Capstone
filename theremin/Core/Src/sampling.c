@@ -2,14 +2,15 @@
  * sampling.c
  *
  *  Created on: Oct 13, 2020
- *      Author: Ethan
+ *      Author: Ethan Levy based on code from Donald Hummels
  */
+
 #include <stdio.h>
 #include "main.h"
 #include "sampling.h"
 
 //Size of ADC Input Buffer
-uint32_t ADC_block_len = DEFAULT_BLOCK_LEN;
+uint32_t ADC_blocksize = DEFAULT_BLOCK_LEN;
 uint32_t ADC_buffer_len = DEFAULT_BLOCK_LEN * 2;
 
 volatile uint8_t Half_Done = 0;
@@ -22,17 +23,32 @@ static volatile uint16_t *output_buff;
 
 enum status volatile current_status;
 
+/*!
+ * @brief Return the block size of half the ADC buffer.
+ *
+ * @returns Block size of the ADC buffer
+ */
 int get_blocksize() {
-	return ADC_block_len;
+	return ADC_blocksize;
 }
 
+/*!
+ * @brief Set the block size of half the ADC buffer.
+ *
+ * @returns On return, the blocksize and buffersize are updated
+ */
 void set_blocksize( uint32_t new_blocksize) {
-	ADC_block_len = new_blocksize;
+	ADC_blocksize = new_blocksize;
 	ADC_buffer_len = 2 * new_blocksize;
 }
 
-/* Get buffer from the ADC */
-void get_adc_buff(float * ret_adc) {
+/*!
+ * @brief Receive a block of data from the ADC.
+ *
+ * @returns On return, ret_adc array is filled up with float values from the 12-bit ADC.
+ * Ideally, this function should be called twice within the course of one full ADC conversion.
+ */
+void get_adc_buff(uint16_t * ret_adc ) {//!< [in,out] Pointer to ADC return array.
 	uint32_t i;
 
 	/* Wait for the next buffer of values */
@@ -48,52 +64,36 @@ void get_adc_buff(float * ret_adc) {
 
 	/* If the ADC conversion is complete, fill up the second half of the buffer */
 	else {
-		input_buff = &(adc_buff[ADC_block_len]);
-		output_buff = &(dac_buff[ADC_block_len]);
+		input_buff = &(adc_buff[ADC_blocksize]);
+		output_buff = &(dac_buff[ADC_blocksize]);
 	}
 
 	/* Convert ADC block to floats to return to user*/
-	for (i = 0; i < ADC_block_len; i++) {
+	for (i = 0; i < ADC_blocksize; i++) {
 		ret_adc[i] = (float)(input_buff[i] - 2047) / 2048.;
 	}
 }
 
-/* Set DAC buffer to output */
-void set_dac_buff(float * input_dac) {
+/*!
+ * @brief Put a block of data on half of the DAC buffer.
+ *
+ * @returns On return, ret_adc array is filled up with float values from the 12-bit ADC.
+ * Ideally, this function should be called twice within the course of one full DAC conversion.
+ */
+void set_dac_buff(uint16_t * input_dac) { //!< [in] Pointer to input DAC array.
 	uint32_t i;
 
-	/* Convert from float to 0-4095 for 12bit dac */
-	for (i = 0; i < ADC_block_len; i++) {
-		output_buff[i] = (int)((input_dac[i] + 1.) * 2048.) & 0xFFFF;
-	}
-}
-
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	Half_Done = 1;
-
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	if (current_status == STARTUP){}
-	else if (current_status == WAIT_FOR_BUFFER) {
-		current_status = PROCESS;
+	if (Half_Done) {
+		output_buff = dac_buff;
+		Half_Done = 0;
 	}
 	else {
-//		printf("Overrun by samples\n");
-//		exit(EXIT_FAILURE);
-//		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+		output_buff = &(dac_buff[ADC_blocksize]);
+		Half_Done = 1;
+	}
+	/* Fill DAC buffer with values */
+	for (i = 0; i < ADC_blocksize; i++) {
+		output_buff[i] = input_dac[i];
 	}
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	Half_Done = 0;
-
-	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	if (current_status == STARTUP){}
-	if (current_status == WAIT_FOR_BUFFER) {
-			current_status = PROCESS;
-	}
-	else{
-//		printf("Overrun by samples\n");
-//		exit(1);
-//		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	}
-}

@@ -3,6 +3,7 @@
   ******************************************************************************
   * @file           : main.c
   * @brief          : Main program body
+  * Perform the operations of a theremin.
   ******************************************************************************
   * @attention
   *
@@ -19,25 +20,33 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "nco.h"
-#include "arm_math.h"
-#include "fir_lp.h"
-#include "sampling.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "nco.h"
+#include "sampling.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+volatile uint8_t update_freq_flag;
+volatile uint8_t dac_comp_flag = 1;
+float freq_timer_count = 0;
+float vol_timer_count = 0;
+uint8_t ms = 0;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define REF_PITCH_OSC_FREQ 251000
+#define REF_VOL_OSC_FREQ 260000
+#define BLOCKSIZE 	500
+#define MILLISECONDS 10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,7 +61,10 @@ DMA_HandleTypeDef hdma_adc1;
 DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
 
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart3;
 
@@ -69,6 +81,9 @@ static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM7_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -80,26 +95,27 @@ static void MX_TIM6_Init(void);
 
 /**
   * @brief  The application entry point.
+  * Run the theremin.
   * @retval int
   */
 int main(void)
 {
   /* USER CODE BEGIN 1 */
   int i;
-  int blocksize;
 
-  static volatile uint16_t *dac_test;
-  float *adc_float;
-  float *sin_buffer;
-  float *sin2_buffer;
-  float *mixed_out;
+  char uart_buf[50];
+  int uart_buf_len;
 
-  float *fir_out;
-  float *fir_state;
-  arm_fir_instance_f32 fir_struct;
+  /* Frequency to output as a sine wave on the DAC */
+  int freq;
+
+  /* Volume to output as a sine wave on the DAC */
+  int vol;
+
+  /* Sine buffer for NCO output */
+  uint16_t *sin_buffer;
 
   NCO_T *s_ref;
-  NCO_T *s_2;
 
   /* USER CODE END 1 */
 
@@ -127,65 +143,92 @@ int main(void)
   MX_ADC1_Init();
   MX_DAC1_Init();
   MX_TIM6_Init();
+  MX_TIM2_Init();
+  MX_TIM7_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-//  s_ref = init_nco(250. / 4550., 0);
-  blocksize = get_blocksize();
 
-  s_ref = init_nco(250. / 4000., 0);
-  s_2 = init_nco(249. / 4000., 0);
+  /* Initialize NCO structure to create sine waves */
+  s_ref = init_nco(1. / 100., 0);
+  sin_buffer = calloc(BLOCKSIZE, sizeof(uint16_t));
 
-  sin_buffer = calloc(blocksize, sizeof(float));
-  sin2_buffer = calloc(blocksize, sizeof(float));
-  dac_test = calloc(blocksize, sizeof(uint16_t));
-  adc_float = calloc(blocksize, sizeof(float));
-  mixed_out = calloc(blocksize, sizeof(float));
-  fir_out = calloc(blocksize, sizeof(float));
-
-  fir_state = malloc(sizeof(float)*(blocksize+fir_coefs_len-1));
-
-  adc_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*blocksize*2);
-
-  if ((adc_buff == NULL) || (dac_buff == NULL)) {
+  if ((sin_buffer == NULL)) {
 	  printf("Failed to allocate memory for arrays\n");
 	  exit(EXIT_FAILURE);
   }
-
-  /* Start ADC with DMA */
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buff, 2*blocksize);
 
   /* Start TIM6 and DAC with DMA */
   HAL_TIM_Base_Start(&htim6);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*blocksize, DAC_ALIGN_12B_R);
+  set_blocksize(BLOCKSIZE);
+  dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*BLOCKSIZE*2);
 
-  arm_fir_init_f32(&fir_struct, fir_coefs_len, fir_coefs, fir_state, blocksize);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sin_buffer, BLOCKSIZE, DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  /* Timer to update and change frequencies with */
+  HAL_TIM_Base_Start_IT(&htim7);
+
+  /* Timers to count up input pulses */
+  HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_Base_Start(&htim5);
+  i = 0;
+
+
   while (1)
   {
-	nco_get_samples(s_ref, sin_buffer, blocksize);
-	nco_get_samples(s_2, sin2_buffer, blocksize);
 
-	get_adc_buff(adc_float);
+	  /* Trigger every MILLISECONDS ms */
+	  if (update_freq_flag) {
 
-	/* Mix the ADC input with the generated sine wave at 250kHz */
-	for (i = 0; i < blocksize; i++) {
-		mixed_out[i] = sin_buffer[i] * adc_float[i];
-//		mixed_out[i] = sin_buffer[i] * sin2_buffer[i];
-	}
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
-	/* Filter the mixed output with the filter coefficients*/
-	arm_fir_f32(&fir_struct, mixed_out, fir_out, blocksize);
+		  /* Calculate the frequency to oscillate at */
+		  freq = (int)((freq_timer_count * 1000 - REF_PITCH_OSC_FREQ));
 
-	/* Output result to DAC */
-	set_dac_buff(adc_float);
+		  /* Calculate the volume level */
+		  vol = (int)((vol_timer_count * 1000 - REF_VOL_OSC_FREQ)) ;
 
-	/* USER CODE END WHILE */
+		  /* Take the absolute value of the difference */
+		  if (freq < 0)
+			  freq = -freq;
+		  if (vol < 0)
+			  vol = -vol;
+
+		  if (freq > 4000)
+			  freq = 4000;
+
+		  /* Inform serial bus of the current output frequency */
+		  uart_buf_len = sprintf(uart_buf, "%dHz, %dHz\r\n", (int)(freq_timer_count * 1000), freq);
+		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+
+		  /* Generate sine wave at desired frequency and amplitude */
+		  nco_set_frequency(s_ref, (float)freq / 50000.);
+		  nco_set_amplitude(s_ref, vol);
+
+		  update_freq_flag = 0;
+		  i++;
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	  }
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+
+	  /* Set DAC output samples if the previous block is complete*/
+	  if (dac_comp_flag) {
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+		  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
+		  dac_comp_flag = 0;
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	  }
+
+	  /* Output result to DAC */
+//	  set_dac_buff(sin_buffer);
+
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -297,13 +340,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
-  hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -365,7 +408,7 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -374,6 +417,102 @@ static void MX_DAC1_Init(void)
   /* USER CODE BEGIN DAC1_Init 2 */
 
   /* USER CODE END DAC1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_TI1FP1;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+  sSlaveConfig.TriggerFilter = 1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim2, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_TI2FP2;
+  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+  sSlaveConfig.TriggerFilter = 1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim5, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -397,7 +536,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 23;
+  htim6.Init.Period = 1919;//960 - 1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -412,6 +551,44 @@ static void MX_TIM6_Init(void)
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 96-1;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 1000-1;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
@@ -597,15 +774,35 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-//void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac){
+/**
+  * @brief  This function is executed every millisecond.
+  * This adds up all measured input pulses on timers 2 and 5, and then averages to find the average frequency.
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//}
-//void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
-//	HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
-//}
 
+	if (ms == 0){
+		freq_timer_count = 0;
+		vol_timer_count = 0;
+	}
+	freq_timer_count += __HAL_TIM_GET_COUNTER(&htim2);
+	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	vol_timer_count += __HAL_TIM_GET_COUNTER(&htim5);
+	__HAL_TIM_SET_COUNTER(&htim5, 0);
+	ms++;
+	if (ms == MILLISECONDS) {
+		update_freq_flag = 1;
+		freq_timer_count /= MILLISECONDS;
+		vol_timer_count /= MILLISECONDS;
+		ms = 0;
+	}
+}
 
+void HAL_DAC_ConvCpltCallbackCh1 (DAC_HandleTypeDef * hdac) {
+//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	dac_comp_flag = 1;
+}
 /* USER CODE END 4 */
 
 /**

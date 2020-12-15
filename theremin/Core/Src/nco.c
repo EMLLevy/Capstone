@@ -1,14 +1,8 @@
-/*
- * nco.c
- *
- *  Created on: Sep 30, 2020
- *      Author: Ethan
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "nco.h"
 #include "math.h"
+#include "main.h"
 
 /*!
  * @brief Numerically controlled oscillator (NCO) initialization
@@ -33,6 +27,7 @@ NCO_T *init_nco(  float f0,            //!< [in] Frequency in cycles per sample
     s->f0 = (int)(f0 * 2 * (1u << 31));
     s->theta = (int)((theta * 2 * (1u << 31))/(2.*PI));
     s->acc = 0;
+    s->amp = 0;
 
     //Return pointer to struct NCO_T
     return s;
@@ -48,33 +43,29 @@ NCO_T *init_nco(  float f0,            //!< [in] Frequency in cycles per sample
  */
 
 void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
-                     float *y,         //!< [out] Pointer to an array for storage of output samples.
+                     uint16_t *y,         //!< [out] Pointer to an array for storage of output samples.
                      int n_samples){   //!< [in] Number of NCO output samples to generate.
 	unsigned int i;
 	unsigned int kprime;
 	unsigned int index;
 
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 	for (i = 0; i < n_samples; i++) {
 
         if ((i == 0) && (s->acc == 0)) {
-            s->acc = 0;
         } else {
-            // k1prime[n]
+            /* Keep track of where we are in the sine wave */
             s->acc += s->f0;
         }
-        //kprime[n]
+
         kprime = s->acc + s->theta;
 
         index = kprime >> 23;
-//        if (index)
-//        if ((i > 0) && (index < 10) && (y[i - 1] < 500) && (y[i - 1] > 100)) {
-//        	y[i] = index;
-//        }
-//		y[i] = index;
-//        y[i] = (int)((cosine[i / 2] * 2048)/2 + 2047);
-//        y[i] = (unsigned int)((cosine[index] * 2048)/2 + 2047);
-        y[i] = cosine[index];
+
+        /* Convert from float to 12-bit */
+        y[i] = (unsigned int)((cosine[index] + 1) * 2047) * s->amp;
 	}
+	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 }
 
 /*!
@@ -102,9 +93,30 @@ void nco_set_phase(  NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
 }
 
 /*!
+ * @brief Update the amplitude stored in the struct @a s.
+ *
+ * @returns On return, The NCO_T structure s is modified so that subsequent calls to nco_get_samples()
+ * will operate with the amplitude given by amp
+ */
+
+void nco_set_amplitude(	NCO_T *s,
+						int amp){
+	if (amp <= 5000) {
+		amp = 5000 - amp;
+		s->amp = (float)amp / 10000.;
+		/* Don't want to saturate the output */
+		if (s->amp > 1) {
+			s->amp = 0;
+		}
+	}else {
+		s->amp = 0.0;
+	}
+}
+
+/*!
  * @brief Free allocated memory in struct @a s.
  *
- * @returns Any resources associated with the nco "s" are released.
+ * @returns Any resources associated with the nco structure are released.
  */
 
 void destroy_nco(NCO_T *s){            //!< [in,out] Pointer to NCO_T struct.

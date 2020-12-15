@@ -2,7 +2,7 @@
  * sampling.c
  *
  *  Created on: Oct 13, 2020
- *      Author: Ethan
+ *      Author: Ethan Levy based on code from Donald Hummels
  */
 
 #include <stdio.h>

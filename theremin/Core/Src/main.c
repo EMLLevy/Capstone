@@ -204,8 +204,8 @@ int main(void)
 			  freq = 4000;
 
 		  /* Inform serial bus of the current output frequency */
-//		  uart_buf_len = sprintf(uart_buf, "%dHz, %dHz\r\n", (int)(freq_timer_count * 1000), freq);
-//		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
+		  uart_buf_len = sprintf(uart_buf, "%dHz, %dHz\r\n", (int)(freq_timer_count * 1000), freq);
+		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 		  /* Generate sine wave at desired frequency and amplitude */
 		  nco_set_frequency(s_ref, (float)freq / 50000.);

@@ -62,7 +62,7 @@ void nco_get_samples(NCO_T *s,         //!< [in,out] Pointer to NCO_T struct.
 
         index = kprime >> 23;
 
-        /* Convert from float to 16-bit */
+        /* Convert from float to 12-bit */
         y[i] = (unsigned int)((cosine[index] + 1) * 2047) * s->amp;
 	}
 	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
@@ -116,7 +116,7 @@ void nco_set_amplitude(	NCO_T *s,
 /*!
  * @brief Free allocated memory in struct @a s.
  *
- * @returns Any resources associated with the nco "s" are released.
+ * @returns Any resources associated with the nco structure are released.
  */
 
 void destroy_nco(NCO_T *s){            //!< [in,out] Pointer to NCO_T struct.

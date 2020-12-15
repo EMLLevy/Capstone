@@ -3,6 +3,7 @@
   ******************************************************************************
   * @file           : main.c
   * @brief          : Main program body
+  * Perform the operations of a theremin.
   ******************************************************************************
   * @attention
   *
@@ -33,15 +34,17 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 volatile uint8_t update_freq_flag;
-volatile float freq_timer_count = 0;
-volatile float vol_timer_count = 0;
-volatile uint8_t ms = 0;
+volatile uint8_t dac_comp_flag = 1;
+float freq_timer_count = 0;
+float vol_timer_count = 0;
+uint8_t ms = 0;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define REF_OSC_FREQ 251000
+#define REF_PITCH_OSC_FREQ 251000
+#define REF_VOL_OSC_FREQ 260000
 #define BLOCKSIZE 	500
 #define MILLISECONDS 10
 /* USER CODE END PD */
@@ -92,6 +95,7 @@ static void MX_TIM5_Init(void);
 
 /**
   * @brief  The application entry point.
+  * Run the theremin.
   * @retval int
   */
 int main(void)
@@ -160,7 +164,7 @@ int main(void)
   set_blocksize(BLOCKSIZE);
   dac_buff = (uint16_t *) malloc(sizeof(uint16_t)*BLOCKSIZE*2);
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_buff, 2*BLOCKSIZE, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)sin_buffer, BLOCKSIZE, DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
@@ -185,10 +189,10 @@ int main(void)
 //		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
 		  /* Calculate the frequency to oscillate at */
-		  freq = (int)((freq_timer_count * 1000 - REF_OSC_FREQ));
+		  freq = (int)((freq_timer_count * 1000 - REF_PITCH_OSC_FREQ));
 
 		  /* Calculate the volume level */
-		  vol = (int)((vol_timer_count * 1000 - /*REF_VOL_FREQ*/ 260000UL)) ;
+		  vol = (int)((vol_timer_count * 1000 - REF_VOL_OSC_FREQ)) ;
 
 		  /* Take the absolute value of the difference */
 		  if (freq < 0)
@@ -196,8 +200,11 @@ int main(void)
 		  if (vol < 0)
 			  vol = -vol;
 
+		  if (freq > 4000)
+			  freq = 4000;
+
 		  /* Inform serial bus of the current output frequency */
-//		  uart_buf_len = sprintf(uart_buf, "%dHz\r\n", (int)(freq));
+//		  uart_buf_len = sprintf(uart_buf, "%dHz, %dHz\r\n", (int)(freq_timer_count * 1000), freq);
 //		  HAL_UART_Transmit(&huart3, uart_buf, uart_buf_len, 100);
 
 		  /* Generate sine wave at desired frequency and amplitude */
@@ -210,13 +217,16 @@ int main(void)
 	  }
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
-	  /* Get DAC output samples */
-//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
-//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	  /* Set DAC output samples if the previous block is complete*/
+	  if (dac_comp_flag) {
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+		  nco_get_samples(s_ref, sin_buffer, BLOCKSIZE);
+		  dac_comp_flag = 0;
+//		  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	  }
 
 	  /* Output result to DAC */
-	  set_dac_buff(sin_buffer);
+//	  set_dac_buff(sin_buffer);
 
     /* USER CODE END WHILE */
 
@@ -791,6 +801,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 void HAL_DAC_ConvCpltCallbackCh1 (DAC_HandleTypeDef * hdac) {
 //	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	dac_comp_flag = 1;
 }
 /* USER CODE END 4 */
 

@@ -97,32 +97,3 @@ void set_dac_buff(uint16_t * input_dac) { //!< [in] Pointer to input DAC array.
 	}
 }
 
-//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-//	Half_Done = 1;
-//
-////	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	if (current_status == STARTUP){}
-//	else if (current_status == WAIT_FOR_BUFFER) {
-//		current_status = PROCESS;
-//	}
-//	else {
-////		printf("Overrun by samples\n");
-////		exit(EXIT_FAILURE);
-////		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	}
-//}
-//
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-//	Half_Done = 0;
-//
-//	HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	if (current_status == STARTUP){}
-//	if (current_status == WAIT_FOR_BUFFER) {
-//			current_status = PROCESS;
-//	}
-//	else{
-////		printf("Overrun by samples\n");
-////		exit(1);
-////		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	}
-//}
